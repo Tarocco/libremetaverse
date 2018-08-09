@@ -118,10 +118,12 @@ namespace CSJ2K.Util
                         var scale3 = byteScaling[3];
                         for (int i = 0, j = 0; i < count;)
                         {
-                            bytes[j++] = (byte)(scale0 * data[i++]);
-                            bytes[j++] = (byte)(scale1 * data[i++]);
-                            bytes[j++] = (byte)(scale2 * data[i++]);
-                            bytes[j++] = (byte)(scale3 * data[i++]);
+                            // HACK: Reorder the channels to be compatible with .NET System.Drawing image ARGB formats
+                            bytes[j++] = (byte)(scale0 * data[i + 1]);
+                            bytes[j++] = (byte)(scale1 * data[i + 2]);
+                            bytes[j++] = (byte)(scale2 * data[i + 3]);
+                            bytes[j++] = (byte)(scale3 * data[i]);
+                            i += 4;
                         }
                     }
                     break;
