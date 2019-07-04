@@ -1336,8 +1336,10 @@ namespace OpenMetaverse
         /// <param name="folder">The <seealso cref="UUID"/> of the folder</param>
         public void RemoveDescendants(UUID folder)
         {
-            void UpdateUi(UUID f)
+            void UpdateUi(bool success, UUID f)
             {
+                if (!success) { return; }
+
                 lock (_Store)
                 {
                     if (!_Store.Contains(f)) return;
@@ -1364,7 +1366,7 @@ namespace OpenMetaverse
                     InventoryData = {FolderID = folder}
                 };
                 Client.Network.SendPacket(purge);
-                UpdateUi(folder);
+                UpdateUi(true, folder);
             }
         }
 
@@ -1726,9 +1728,8 @@ namespace OpenMetaverse
             {
                 CreateLink(folderID, folder, callback);
             }
-            else if (bse is InventoryItem)
+            else if (bse is InventoryItem item)
             {
-                InventoryItem item = (InventoryItem)bse;
                 CreateLink(folderID, item.UUID, item.Name, item.Description, AssetType.Link, item.InventoryType, UUID.Random(), callback);
             }
         }
@@ -1741,7 +1742,8 @@ namespace OpenMetaverse
         /// <param name="callback">Method to call upon creation of the link</param>
         public void CreateLink(UUID folderID, InventoryItem item, ItemCreatedCallback callback)
         {
-            CreateLink(folderID, item.UUID, item.Name, item.Description, AssetType.Link, item.InventoryType, UUID.Random(), callback);
+            CreateLink(folderID, item.UUID, item.Name, item.Description, AssetType.Link, 
+                item.InventoryType, UUID.Random(), callback);
         }
 
         /// <summary>
@@ -1752,7 +1754,8 @@ namespace OpenMetaverse
         /// <param name="callback">Method to call upon creation of the link</param>
         public void CreateLink(UUID folderID, InventoryFolder folder, ItemCreatedCallback callback)
         {
-            CreateLink(folderID, folder.UUID, folder.Name, "", AssetType.LinkFolder, InventoryType.Folder, UUID.Random(), callback);
+            CreateLink(folderID, folder.UUID, folder.Name, "",
+                AssetType.LinkFolder, InventoryType.Folder, UUID.Random(), callback);
         }
 
         /// <summary>
@@ -1766,7 +1769,8 @@ namespace OpenMetaverse
         /// <param name="invType">Inventory Type</param>
         /// <param name="transactionID">Transaction UUID</param>
         /// <param name="callback">Method to call upon creation of the link</param>
-        public void CreateLink(UUID folderID, UUID itemID, string name, string description, AssetType assetType, InventoryType invType, UUID transactionID, ItemCreatedCallback callback)
+        public void CreateLink(UUID folderID, UUID itemID, string name, string description, 
+            AssetType assetType, InventoryType invType, UUID transactionID, ItemCreatedCallback callback)
         {
             if (Client.AisClient.IsAvailable)
             {
@@ -1782,9 +1786,8 @@ namespace OpenMetaverse
                 links.Add(link);
 
                 OSDMap newInventory = new OSDMap {{"links", links}};
-                // FIXME: THis callback doesn't work anymore. Needs fixed.
-                RegisterItemCreatedCallback(callback);
-                Client.AisClient.CreateInventory(folderID, newInventory, null).ConfigureAwait(false);
+                Client.AisClient.CreateInventory(folderID, newInventory, true, callback)
+                    .ConfigureAwait(false);
             }
             else
             {
@@ -3009,7 +3012,7 @@ namespace OpenMetaverse
             }
         }
 
-        private InventoryItem SafeCreateInventoryItem(InventoryType InvType, UUID ItemID)
+        public InventoryItem SafeCreateInventoryItem(InventoryType InvType, UUID ItemID)
         {
             InventoryItem ret = null;
 
@@ -3827,7 +3830,7 @@ namespace OpenMetaverse
             if (_Store.Contains(reply.AgentData.FolderID) &&
                 _Store[reply.AgentData.FolderID] is InventoryFolder)
             {
-                parentFolder = _Store[reply.AgentData.FolderID] as InventoryFolder;
+                parentFolder = (InventoryFolder) _Store[reply.AgentData.FolderID];
             }
             else
             {
