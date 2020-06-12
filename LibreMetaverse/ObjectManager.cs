@@ -81,7 +81,9 @@ namespace OpenMetaverse
         /// <summary>Whether the object has a name value pairs string</summary>
         HasNameValues = 0x100,
         /// <summary>Whether the object has a Media URL set</summary>
-        MediaURL = 0x200
+        MediaURL = 0x200,
+        /// <summary>Whether the object has, you guessed it, new particles</summary>
+        HasParticlesNew = 0x400
     }
 
     /// <summary>
@@ -1678,16 +1680,15 @@ namespace OpenMetaverse
         /// <param name="sim">Simulator in which prim is located</param>
         public void NavigateObjectMedia(UUID primID, int face, string newURL, Simulator sim)
         {
-            Uri url;
-            if (sim.Caps != null && null != (url = sim.Caps.CapabilityURI("ObjectMediaNavigate")))
+            CapsClient request;
+            if (sim.Caps != null && (request = Client.Network.CurrentSim.Caps.CreateCapsClient("ObjectMediaNavigate")) != null)
             {
-                ObjectMediaNavigateMessage req = new ObjectMediaNavigateMessage();
-                req.PrimID = primID;
-                req.URL = newURL;
-                req.Face = face;
+                ObjectMediaNavigateMessage req = new ObjectMediaNavigateMessage
+                {
+                    PrimID = primID, URL = newURL, Face = face
+                };
 
-                CapsClient request = new CapsClient(url);
-                request.OnComplete += (CapsClient client, OSD result, Exception error) =>
+                request.OnComplete += (client, result, error) =>
                     {
                         if (error != null)
                         {
@@ -1712,16 +1713,12 @@ namespace OpenMetaverse
         /// <param name="sim">Simulatior in which prim is located</param>
         public void UpdateObjectMedia(UUID primID, MediaEntry[] faceMedia, Simulator sim)
         {
-            Uri url;
-            if (sim.Caps != null && null != (url = sim.Caps.CapabilityURI("ObjectMedia")))
+            CapsClient request;
+            if (sim.Caps != null && (request = Client.Network.CurrentSim.Caps.CreateCapsClient("ObjectMedia")) != null)
             {
-                ObjectMediaUpdate req = new ObjectMediaUpdate();
-                req.PrimID = primID;
-                req.FaceMedia = faceMedia;
-                req.Verb = "UPDATE";
+                ObjectMediaUpdate req = new ObjectMediaUpdate {PrimID = primID, FaceMedia = faceMedia, Verb = "UPDATE"};
 
-                CapsClient request = new CapsClient(url);
-                request.OnComplete += (CapsClient client, OSD result, Exception error) =>
+                request.OnComplete += (client, result, error) =>
                     {
                         if (error != null)
                         {
@@ -1744,15 +1741,12 @@ namespace OpenMetaverse
         /// <param name="callback">Call this callback when done</param>
         public void RequestObjectMedia(UUID primID, Simulator sim, ObjectMediaCallback callback)
         {
-            Uri url;
-            if (sim.Caps != null && null != (url = sim.Caps.CapabilityURI("ObjectMedia")))
+            CapsClient request;
+            if (sim.Caps != null && (request = Client.Network.CurrentSim.Caps.CreateCapsClient("ObjectMedia")) != null)
             {
-                ObjectMediaRequest req = new ObjectMediaRequest();
-                req.PrimID = primID;
-                req.Verb = "GET";
+                ObjectMediaRequest req = new ObjectMediaRequest {PrimID = primID, Verb = "GET"};
 
-                CapsClient request = new CapsClient(url);
-                request.OnComplete += (CapsClient client, OSD result, Exception error) =>
+                request.OnComplete += (client, result, error) =>
                     {
                         if (result == null)
                         {
@@ -1765,13 +1759,11 @@ namespace OpenMetaverse
                         ObjectMediaMessage msg = new ObjectMediaMessage();
                         msg.Deserialize((OSDMap)result);
 
-                        if (msg.Request is ObjectMediaResponse)
+                        if (msg.Request is ObjectMediaResponse response)
                         {
-                            ObjectMediaResponse response = (ObjectMediaResponse)msg.Request;
-
                             if (Client.Settings.OBJECT_TRACKING)
                             {
-                                Primitive prim = sim.ObjectsPrimitives.Find((Primitive p) => { return p.ID == primID; });
+                                Primitive prim = sim.ObjectsPrimitives.Find((Primitive p) => p.ID == primID);
                                 if (prim != null)
                                 {
                                     prim.MediaVersion = response.Version;
@@ -2119,7 +2111,7 @@ namespace OpenMetaverse
                         EventHandler<PrimEventArgs> handler = m_ObjectUpdate;
                         if (handler != null)
                         {
-                            WorkPool.QueueUserWorkItem(delegate(object o)
+                            ThreadPool.QueueUserWorkItem(delegate(object o)
                             { handler(this, new PrimEventArgs(simulator, prim, update.RegionData.TimeDilation, isNewObject, attachment)); });
                         }
                         //OnParticleUpdate handler replacing decode particles, PCode.Particle system appears to be deprecated this is a fix
@@ -2340,7 +2332,7 @@ namespace OpenMetaverse
                     EventHandler<TerseObjectUpdateEventArgs> handler = m_TerseObjectUpdate;
                     if (handler != null)
                     {
-                        WorkPool.QueueUserWorkItem(delegate(object o)
+                        ThreadPool.QueueUserWorkItem(delegate(object o)
                         { handler(this, new TerseObjectUpdateEventArgs(simulator, obj, update, terse.RegionData.TimeDilation)); });
                     }
 
@@ -2814,7 +2806,7 @@ namespace OpenMetaverse
                 if (Client.Settings.OBJECT_TRACKING)
                 {
                     Primitive findPrim = simulator.ObjectsPrimitives.Find(
-                        delegate(Primitive prim) { return prim.ID == props.ObjectID; });
+                        prim => prim.ID == props.ObjectID);
 
                     if (findPrim != null)
                     {
@@ -2864,7 +2856,7 @@ namespace OpenMetaverse
             if (Client.Settings.OBJECT_TRACKING)
             {
                 Primitive findPrim = simulator.ObjectsPrimitives.Find(
-                        delegate(Primitive prim) { return prim.ID == op.ObjectData.ObjectID; });
+                    prim => prim.ID == op.ObjectData.ObjectID);
 
                 if (findPrim != null)
                 {

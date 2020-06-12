@@ -1,20 +1,24 @@
 init:
-  - ps: if ($env:APPVEYOR_REPO_TAG -eq "true") { $env:TAG_VERSION = "$env:APPVEYOR_REPO_TAG_NAME.$env:APPVEYOR_BUILD_NUMBER" } else { $env:TAG_VERSION = "v1.3.0.$env:APPVEYOR_BUILD_NUMBER-alpha" }
+  - ps: if ($env:APPVEYOR_REPO_TAG -eq "true") { $env:TAG_VERSION = "$env:APPVEYOR_REPO_TAG_NAME.$env:APPVEYOR_BUILD_NUMBER" } else { $env:TAG_VERSION = "v1.5.0.$env:APPVEYOR_BUILD_NUMBER-alpha" }
   - ps: $env:TAG_VERSION = $env:TAG_VERSION -replace 'v',''
   - ps: Write-Host "Setting version to '$env:TAG_VERSION'"
   - ps: Update-AppveyorBuild -Version "$env:TAG_VERSION"
-
-image: Visual Studio 2017
-
-configuration: Release
 
 environment:
   LMVTestAgentUsername: SecretAgentTest Resident
   LMVTestAgentPassword:
     secure: bOoXrGfLiHjZlCG1tJ+nDQ==
 
+  matrix:
+  - job_name: Windows build
+    appveyor_build_worker_image: Visual Studio 2019
+    configuration: Release
+  - job_name: Linux build
+    appveyor_build_worker_image: Ubuntu1804
+    configuration: ReleaseNoGui
+
 pull_requests:
-  do_not_increment_build_number: true
+  do_not_increment_build_number: false
 
 nuget:
   disable_publish_on_pr: true
@@ -39,12 +43,22 @@ dotnet_csproj:
 before_build:
   - nuget restore LibreMetaverse.sln
 
+after_build:
+  - ps: if ($isWindows) { Get-ChildItem -Filter "*.nupkg" -Path "C:\Users\appveyor\AppData\Local\Temp\" -recurse | Compress-Archive -DestinationPath "nuget_libraries.zip" -Verbose }
 
+artifacts:
+  - path: 'nuget_libraries.zip'
+    name: 'Nuget Library Archive'
+    type: Auto
 
 deploy:
-  - provider: NuGet
-    name: nuget_release
-    api_key:
-      secure: WAEp9wQu4tWKiMdcfog7FWpzk7rPou8flMCYlmYy3mZ+thKwmG1ht4o4mmEE6ZLs
+  - provider: Webhook
+    url: https://app.signpath.io/API/v1/8446d24b-7c29-473d-b13c-83bac9d9db17/Integrations/AppVeyor?ProjectKey=LibreMetaverse&SigningPolicyKey=LibreMetaverse
+    authorization:
+      secure: 5X22VkhN0wjILZOvbIPXRUutxFSiwHxhe9e7xYxEMGhxq+mAyMptnWJ0PH20YS8+v+nsnV7woz0pgYHBTEYahQ==
     skip_symbols: true
-    artifact: /.*LibreMetaverse.*\.nupkg/
+    artifact: nuget_libraries.zip
+    draft: false
+    prerelease: false
+    on:
+      job_name: Windows build

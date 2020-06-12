@@ -27,29 +27,23 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Globalization;
-using ProtoBuf;
 
 namespace OpenMetaverse
 {
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    [ProtoContract]
     public struct Quaternion : IEquatable<Quaternion>
     {
         /// <summary>X value</summary>
-        [ProtoMember(1)]
         public float X;
 
         /// <summary>Y value</summary>
-        [ProtoMember(2)]
         public float Y;
 
         /// <summary>Z value</summary>
-        [ProtoMember(3)]
         public float Z;
 
         /// <summary>W value</summary>
-        [ProtoMember(4)]
         public float W;
 
         #region Constructors
@@ -681,7 +675,7 @@ namespace OpenMetaverse
 
         public override bool Equals(object obj)
         {
-            return (obj is Quaternion) ? this == (Quaternion)obj : false;
+            return (obj is Quaternion quaternion) && this == quaternion;
         }
 
         public bool Equals(Quaternion other)
